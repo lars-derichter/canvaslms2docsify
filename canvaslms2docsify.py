@@ -35,14 +35,14 @@ def sanitize_module_name(module_name):
     return module_name
 
 # Loop through each module
-for index, module in enumerate(modules):
+for module in modules:
     # Get the module name
     module_name = module.name
-    print(f"Module Name: {module_name}")
 
     # Sanitize the module name
-    module_name = sanitize_module_name(module_name)
-    directory_name = f"{index:02d}-{module_name}"
+    directory_name = sanitize_module_name(module_name)
+    # strip leading and trailing underscores
+    directory_name = directory_name.strip('_')
     directory_path = os.path.join(output_dir, directory_name)
 
     # Create the directory if it does not exist
