@@ -273,7 +273,7 @@ $RECYCLE.BIN/
 
 ### direnv ###
 .direnv
-# .envrc
+.envrc
 
 # End of https://www.toptal.com/developers/gitignore/api/direnv
 
