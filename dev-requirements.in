@@ -1,2 +1,2 @@
--r requirements.in
+-r requirements.txt
 pip-tools

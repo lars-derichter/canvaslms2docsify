@@ -6,8 +6,20 @@
 #
 build==1.2.1
     # via pip-tools
+certifi==2024.7.4
+    # via
+    #   -r requirements.txt
+    #   requests
+charset-normalizer==3.3.2
+    # via
+    #   -r requirements.txt
+    #   requests
 click==8.1.7
     # via pip-tools
+idna==3.8
+    # via
+    #   -r requirements.txt
+    #   requests
 packaging==24.1
     # via build
 pip-tools==7.4.1
@@ -16,6 +28,12 @@ pyproject-hooks==1.1.0
     # via
     #   build
     #   pip-tools
+requests==2.32.3
+    # via -r requirements.txt
+urllib3==2.2.2
+    # via
+    #   -r requirements.txt
+    #   requests
 wheel==0.44.0
     # via pip-tools
 
