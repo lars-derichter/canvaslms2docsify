@@ -60,7 +60,8 @@ for module in modules:
     module_items = module.get_module_items()
 
     # Loop through each module item
-    counter = 0;
+    content = ""
+    counter = 1; # Counter for the markdown files starting from 01
     for module_item in module_items:
         # Get the module item title
         module_item_title = module_item.title
@@ -90,6 +91,10 @@ for module in modules:
         # If it is a subheader get its content
         elif module_item_type == "SubHeader":
             content = f'<h2>{module_item.title}</h2>'
+
+        else:
+            print(f"    Module Item Type not supported: {module_item_type}")
+            continue
 
 
         # Check if the content contains any images
