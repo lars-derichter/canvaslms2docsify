@@ -1,4 +1,5 @@
 import os
+import re
 from canvasapi import Canvas
 
 # Define the LMS API endpoint and authentication token
@@ -7,6 +8,9 @@ auth_token = os.environ.get("AUTH_TOKEN")
 
 # Define the course ID
 course_id = os.environ.get("COURSE_ID") 
+
+# Define the directory where the markdown files will be saved
+output_dir = os.environ.get("OUTPUT_DIR")
 
 # Initialize a new Canvas object
 canvas = Canvas(api_endpoint, auth_token)
@@ -22,11 +26,31 @@ print(f"Course Name: {course_name}")
 # Get the course modules
 modules = course.get_modules()
 
+# Function to sanitize module names
+def sanitize_module_name(module_name):
+    # Remove special characters
+    module_name = re.sub(r'[^a-zA-Z0-9\s]', '', module_name)
+    # Replace spaces with underscores
+    module_name = module_name.replace(" ", "_")
+    return module_name
+
 # Loop through each module
-for module in modules:
+for index, module in enumerate(modules):
     # Get the module name
     module_name = module.name
     print(f"Module Name: {module_name}")
+
+    # Sanitize the module name
+    module_name = sanitize_module_name(module_name)
+    directory_name = f"{index:02d}-{module_name}"
+    directory_path = os.path.join(output_dir, directory_name)
+
+    # Create the directory if it does not exist
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path)
+        print(f"Created directory: {directory_path}")
+    else:
+        print(f"Directory already exists: {directory_path}")
 
     # Get the module items
     module_items = module.get_module_items()
