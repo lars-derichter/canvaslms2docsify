@@ -79,12 +79,33 @@ for module in modules:
             assignment = course.get_assignment(module_item_assignment_id)
             content = assignment.description
 
+        # Check if the content contains any images
+        if '<img' in content:
+            # Get the images
+            images = re.findall(r'<img.*?src="(.*?)"', content)
+            print(f"      Images: {images}")
+
+            # Download the images
+            for image in images:
+                image_url = image
+                image_name = os.path.basename(image_url)
+                image_path = os.path.join(directory_path, image_name)
+                if not os.path.exists(image_path):
+                    print(f"      Downloading image: {image_url}")
+                    os.system(f"curl -o {image_path} {image_url}")
+                else:
+                    print(f"      Image already exists: {image_path}")
+
+                # Replace the image URL in the content
+                content = content.replace(image_url, image_name)
+        
+        # Convert the content to github flavoured markdown
+        markdown_content = f"# {module_item_title}\n\n" 
+        markdown_content += convert_text(content, input_format="html", output_format="gfm")
+
         # Save the content to a markdown file
         file_name = module_item_title + ".md"
         file_path = os.path.join(directory_path, file_name)
         with open(file_path, "w") as file:
-            file.write(content)
+            file.write(markdown_content)
             print(f"Saved page content to: {file_path}")
-
-        
-
