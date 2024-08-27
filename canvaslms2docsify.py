@@ -87,6 +87,10 @@ for module in modules:
         elif module_item_type == "ExternalUrl":
             content = f'<p><a href="{module_item.external_url}" target="_blank">{module_item.title}</a></p>'
 
+        # If it is a subheader get its content
+        elif module_item_type == "SubHeader":
+            content = f'<h2>{module_item.title}</h2>'
+
 
         # Check if the content contains any images
         if '<img' in content:
