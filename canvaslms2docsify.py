@@ -66,14 +66,14 @@ for module in modules:
         module_item_type = module_item.type
         print(f"    Module Item Type: {module_item_type}")
 
-        # Get the module item page content
+        # If it is a page get its content
         if module_item_type == "Page":
             module_item_page_url = module_item.page_url
             print(f"      Module Item Page URL: {module_item_page_url}")
             page = course.get_page(module_item_page_url)
             content = page.body
 
-        # Get the module item assignment content
+        # If it is an assignment get its content
         elif module_item_type == "Assignment":
             module_item_assignment_id = module_item.content_id
             assignment = course.get_assignment(module_item_assignment_id)
@@ -82,18 +82,16 @@ for module in modules:
         # Check if the content contains any images
         if '<img' in content:
             # Get the images data-api-endpoint file numbers
-            # data-api-endpoint="/api/v1/courses/12345/files/1234567"
-            # and we only need the file number
             image_ids = re.findall(r'/files/(\d+)', content)
             print(f"      Images: {image_ids}")
 
-            # Get image filenames and download the images
+            # Get the file objects for the images
             for image_id in image_ids:
                 image = course.get_file(image_id)
                 image_name = image.display_name
                 print(f"      Image Name: {image_name}")
 
-                # we use re to remove the extension from the image name for the alt text
+                # Remove the extension from the image name for the alt text
                 image_alt = re.sub(r'\..*$', '', image_name)
 
                 # Download the image
@@ -107,7 +105,7 @@ for module in modules:
                 # Replace the original image tag with our own
                 content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)
         
-        # Convert the content to github flavoured markdown
+        # Set the title as h1 and convert the content to github flavoured markdown
         markdown_content = f"# {module_item_title}\n\n" 
         markdown_content += convert_text(content, input_format="html", output_format="gfm")
 
