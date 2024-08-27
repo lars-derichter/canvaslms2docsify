@@ -83,6 +83,11 @@ for module in modules:
             assignment = course.get_assignment(module_item_assignment_id)
             content = assignment.description
 
+        # If it is an external URL get its content
+        elif module_item_type == "ExternalUrl":
+            content = f'<p><a href="{module_item.external_url}" target="_blank">{module_item.title}</a></p>'
+
+
         # Check if the content contains any images
         if '<img' in content:
             # Get the images data-api-endpoint file numbers
