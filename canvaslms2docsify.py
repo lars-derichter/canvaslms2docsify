@@ -1,6 +1,7 @@
 import os
 import re
 from canvasapi import Canvas
+from panflute import *
 
 # Define the LMS API endpoint and authentication token
 api_endpoint = os.environ.get("API_ENDPOINT") 
@@ -63,4 +64,27 @@ for module in modules:
 
         # Get the module item type
         module_item_type = module_item.type
-        print(f"Module Item Type: {module_item_type}")
+        print(f"    Module Item Type: {module_item_type}")
+
+        # Get the module item page content
+        if module_item_type == "Page":
+            module_item_page_url = module_item.page_url
+            print(f"      Module Item Page URL: {module_item_page_url}")
+            page = course.get_page(module_item_page_url)
+            content = page.body
+
+        # Get the module item assignment content
+        elif module_item_type == "Assignment":
+            module_item_assignment_id = module_item.content_id
+            assignment = course.get_assignment(module_item_assignment_id)
+            content = assignment.description
+
+        # Save the content to a markdown file
+        file_name = module_item_title + ".md"
+        file_path = os.path.join(directory_path, file_name)
+        with open(file_path, "w") as file:
+            file.write(content)
+            print(f"Saved page content to: {file_path}")
+
+        
+

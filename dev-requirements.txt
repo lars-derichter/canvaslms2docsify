@@ -21,13 +21,18 @@ charset-normalizer==3.3.2
     #   -r requirements.txt
     #   requests
 click==8.1.7
-    # via pip-tools
+    # via
+    #   -r requirements.txt
+    #   panflute
+    #   pip-tools
 idna==3.8
     # via
     #   -r requirements.txt
     #   requests
 packaging==24.1
     # via build
+panflute==2.3.1
+    # via -r requirements.txt
 pip-tools==7.4.1
     # via -r dev-requirements.in
 pyproject-hooks==1.1.0
@@ -42,6 +47,10 @@ pytz==2024.1
     # via
     #   -r requirements.txt
     #   canvasapi
+pyyaml==6.0.2
+    # via
+    #   -r requirements.txt
+    #   panflute
 requests==2.32.3
     # via
     #   -r requirements.txt
