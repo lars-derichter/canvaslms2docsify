@@ -60,6 +60,7 @@ for module in modules:
     module_items = module.get_module_items()
 
     # Loop through each module item
+    counter = 0;
     for module_item in module_items:
         # Get the module item title
         module_item_title = module_item.title
@@ -113,11 +114,12 @@ for module in modules:
         markdown_content += convert_text(content, input_format="html", output_format="gfm")
 
         # Save the content to a markdown file
-        file_name = module_item_title + ".md"
+        file_name = f"{counter:02d}-{module_item.title}.md"
         file_path = os.path.join(directory_path, file_name)
         with open(file_path, "w") as file:
             file.write(markdown_content)
             print(f"Saved page content to: {file_path}")
+        counter += 1
 
 # Exit the script
 exit(0) 
