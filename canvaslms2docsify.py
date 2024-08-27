@@ -3,16 +3,19 @@ import re
 from canvasapi import Canvas
 from panflute import *
 
+### Set the following environment variables before running the script
 # Define the LMS API endpoint and authentication token
-api_endpoint = os.environ.get("API_ENDPOINT") 
-auth_token = os.environ.get("AUTH_TOKEN")
+api_endpoint = os.environ.get("API_ENDPOINT") or "https://canvas.instructure.com"
+auth_token = os.environ.get("AUTH_TOKEN") or "YOUR_AUTH"
 
 # Define the course ID
-course_id = os.environ.get("COURSE_ID") 
+course_id = os.environ.get("COURSE_ID") or "YOUR_COURSE_ID"
 
 # Define the directory where the markdown files will be saved
-output_dir = os.environ.get("OUTPUT_DIR")
+output_dir = os.environ.get("OUTPUT_DIR") or "docs"
 
+
+### Main script
 # Initialize a new Canvas object
 canvas = Canvas(api_endpoint, auth_token)
 
