@@ -81,23 +81,31 @@ for module in modules:
 
         # Check if the content contains any images
         if '<img' in content:
-            # Get the images
-            images = re.findall(r'<img.*?src="(.*?)"', content)
-            print(f"      Images: {images}")
+            # Get the images data-api-endpoint file numbers
+            # data-api-endpoint="/api/v1/courses/12345/files/1234567"
+            # and we only need the file number
+            image_ids = re.findall(r'/files/(\d+)', content)
+            print(f"      Images: {image_ids}")
 
-            # Download the images
-            for image in images:
-                image_url = image
-                image_name = os.path.basename(image_url)
+            # Get image filenames and download the images
+            for image_id in image_ids:
+                image = course.get_file(image_id)
+                image_name = image.display_name
+                print(f"      Image Name: {image_name}")
+
+                # we use re to remove the extension from the image name for the alt text
+                image_alt = re.sub(r'\..*$', '', image_name)
+
+                # Download the image
                 image_path = os.path.join(directory_path, image_name)
                 if not os.path.exists(image_path):
-                    print(f"      Downloading image: {image_url}")
-                    os.system(f"curl -o {image_path} {image_url}")
+                    print(f"      Downloading image: {image_name}")
+                    image.download(image_path)
                 else:
                     print(f"      Image already exists: {image_path}")
 
-                # Replace the image URL in the content
-                content = content.replace(image_url, image_name)
+                # Replace the original image tag with our own
+                content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)
         
         # Convert the content to github flavoured markdown
         markdown_content = f"# {module_item_title}\n\n" 
@@ -109,3 +117,6 @@ for module in modules:
         with open(file_path, "w") as file:
             file.write(markdown_content)
             print(f"Saved page content to: {file_path}")
+
+# Exit the script
+exit(0) 
