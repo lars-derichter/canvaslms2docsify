@@ -15,28 +15,32 @@ course_id = os.environ.get("COURSE_ID") or "YOUR_COURSE_ID"
 output_dir = os.environ.get("OUTPUT_DIR") or "docs"
 
 
-### Main script
-# Initialize a new Canvas object
-canvas = Canvas(api_endpoint, auth_token)
-
-# Get the course object
-course = canvas.get_course(course_id)
-
-# Get the course name
-course_name = course.name
-
-print(f"Course Name: {course_name}")
-
-# Get the course modules
-modules = course.get_modules()
-
-# Function to sanitize module names
-def sanitize_module_name(module_name):
+### Helper functions
+# Function to sanitize directory and filenames
+def sanitize_name(module_name):
     # Remove special characters
     module_name = re.sub(r'[^a-zA-Z0-9\s]', '', module_name)
-    # Replace spaces with underscores
-    module_name = module_name.replace(" ", "_")
+    # Replace spaces with hyphens
+    module_name = module_name.replace(" ", "-")
+    # Replace multiple hyphens with a single hyphen
+    module_name = re.sub(r'-+', '-', module_name)
+    # strip leading and trailing hyphens
+    module_name = module_name.strip("-")
+    # Convert to lowercase
+    module_name = module_name.lower()
     return module_name
+
+### Main script
+
+# Initialize a new Canvas object
+canvas = Canvas(api_endpoint, auth_token)
+# Get the course object
+course = canvas.get_course(course_id)
+# Get the course name
+course_name = course.name
+print(f"Course Name: {course_name}")
+# Get the course modules
+modules = course.get_modules()
 
 # Loop through each module
 for module in modules:
@@ -44,9 +48,7 @@ for module in modules:
     module_name = module.name
 
     # Sanitize the module name
-    directory_name = sanitize_module_name(module_name)
-    # strip leading and trailing underscores
-    directory_name = directory_name.strip('_')
+    directory_name = sanitize_name(module_name)
     directory_path = os.path.join(output_dir, directory_name)
 
     # Create the directory if it does not exist
@@ -74,7 +76,6 @@ for module in modules:
         # If it is a page get its content
         if module_item_type == "Page":
             module_item_page_url = module_item.page_url
-            print(f"      Module Item Page URL: {module_item_page_url}")
             page = course.get_page(module_item_page_url)
             content = page.body
 
@@ -91,6 +92,8 @@ for module in modules:
         # If it is a subheader get its content
         elif module_item_type == "SubHeader":
             content = f'<h2>{module_item.title}</h2>'
+
+        # [TODO] Add support for files and external tools
 
         else:
             print(f"    Module Item Type not supported: {module_item_type}")
@@ -128,7 +131,7 @@ for module in modules:
         markdown_content += convert_text(content, input_format="html", output_format="gfm")
 
         # Save the content to a markdown file
-        file_name = f"{counter:02d}-{module_item.title}.md"
+        file_name = f"{counter:02d}-{sanitize_name(module_item.title)}.md"
         file_path = os.path.join(directory_path, file_name)
         with open(file_path, "w") as file:
             file.write(markdown_content)
