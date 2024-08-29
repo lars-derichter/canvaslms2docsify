@@ -32,30 +32,46 @@ def sanitize_name(module_name):
 
 # Function to get the images from the content, download them and replace the image tags
 def get_images(content):
+    if '<img' in content:
     # Get the images data-api-endpoint file numbers
-    image_ids = re.findall(r'/files/(\d+)', content)
-    print(f"      Images: {image_ids}")
+        image_ids = re.findall(r'/files/(\d+)', content)
+        print(f"      Images: {image_ids}")
 
-    # Get the file objects for the images
-    for image_id in image_ids:
-        image = course.get_file(image_id)
-        image_name = image.display_name
-        print(f"      Image Name: {image_name}")
+        # Get the file objects for the images
+        for image_id in image_ids:
+            image = course.get_file(image_id)
+            image_name = image.display_name
+            print(f"      Image Name: {image_name}")
 
-        # Remove the extension from the image name for the alt text
-        image_alt = re.sub(r'\..*$', '', image_name)
+            # Remove the extension from the image name for the alt text
+            image_alt = re.sub(r'\..*$', '', image_name)
 
-        # Download the image
-        image_path = os.path.join(directory_path, image_name)
-        if not os.path.exists(image_path):
-            print(f"      Downloading image: {image_name}")
-            image.download(image_path)
-        else:
-            print(f"      Image already exists: {image_path}")
+            # Download the image
+            image_path = os.path.join(directory_path, image_name)
+            if not os.path.exists(image_path):
+                print(f"      Downloading image: {image_name}")
+                image.download(image_path)
+            else:
+                print(f"      Image already exists: {image_path}")
 
-        # Replace the original image tag with our own
-        content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)
+            # Replace the original image tag with our own
+            content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)  
     return content
+
+def content_to_markdown(content):
+     # Set the title as h1 and convert the content to github flavoured markdown
+    markdown_content = f"# {module_item_title}\n\n"
+    markdown_content += convert_text(content, input_format="html", output_format="gfm")
+    return markdown_content
+
+# Save the content to a markdown file
+def save_content_to_file(markdown_content):
+    file_name = f"{counter:02d}-{sanitize_name(module_item.title)}.md"
+    file_path = os.path.join(directory_path, file_name)
+    with open(file_path, "w") as file:
+        file.write(markdown_content)
+        print(f"Saved content to: {file_path}")
+
 
 ### Main script
 # Initialize a new Canvas object
@@ -65,9 +81,14 @@ course = canvas.get_course(course_id)
 # Get the course name
 course_name = course.name
 print(f"Course Name: {course_name}")
+
+# Create index
+content_index = f'- [{course_name}]()\n'
+# Create depth counter
+depth = 0
+
 # Get the course modules
 modules = course.get_modules()
-
 # Loop through each module
 for module in modules:
     # Get the module name
@@ -84,11 +105,15 @@ for module in modules:
     else:
         print(f"Directory already exists: {directory_path}")
 
+    # Add link to index
+    content_index += f'{"  " * depth}- [{module_name}]({directory_name}/)\n'
+
     # Get the module items
     module_items = module.get_module_items()
 
     # Loop through each module item
     content = ""
+    markdown_content = ""
     counter = 1; # Counter for the markdown files starting from 01
     for module_item in module_items:
         # Get the module item title
@@ -104,42 +129,35 @@ for module in modules:
             module_item_page_url = module_item.page_url
             page = course.get_page(module_item_page_url)
             content = page.body
+            content = get_images(content)
+            markdown_content = content_to_markdown(content)
+            save_content_to_file(markdown_content)
 
         # If it is an assignment get its content
         elif module_item_type == "Assignment":
             module_item_assignment_id = module_item.content_id
             assignment = course.get_assignment(module_item_assignment_id)
             content = assignment.description
+            content = get_images(content)
+            markdown_content = content_to_markdown(content)
+            save_content_to_file(markdown_content)
 
         # If it is an external URL get its content
         elif module_item_type == "ExternalUrl":
-            content = f'<p><a href="{module_item.external_url}" target="_blank">{module_item.title}</a></p>'
+            markdown_content = f'[Link naar {module_item.title}]({module_item.external_url})'
+            save_content_to_file(markdown_content)
 
         # If it is a subheader get its content
         elif module_item_type == "SubHeader":
-            content = '' # Subheader does not have content
+            markdown_content = f'# {module_item.title}'
+            save_content_to_file(markdown_content)
+            depth = 1
 
         # [TODO] Add support for files and external tools
 
         else:
             print(f"    Module Item Type not supported: {module_item_type}")
             continue
-
-
-        # Check if the content contains any images
-        if '<img' in content:
-            content = get_images(content)
-            
-        # Set the title as h1 and convert the content to github flavoured markdown
-        markdown_content = f"# {module_item_title}\n\n" 
-        markdown_content += convert_text(content, input_format="html", output_format="gfm")
-
-        # Save the content to a markdown file
-        file_name = f"{counter:02d}-{sanitize_name(module_item.title)}.md"
-        file_path = os.path.join(directory_path, file_name)
-        with open(file_path, "w") as file:
-            file.write(markdown_content)
-            print(f"Saved page content to: {file_path}")
         counter += 1
 
 # Exit the script
