@@ -117,7 +117,7 @@ for module in modules:
 
         # If it is a subheader get its content
         elif module_item_type == "SubHeader":
-            content = f'<h2>{module_item.title}</h2>'
+            content = '' # Subheader does not have content
 
         # [TODO] Add support for files and external tools
 
