@@ -86,7 +86,7 @@ course_name = course.name
 print(f"Course Name: {course_name}")
 
 # Create index
-content_index = f'- [{course_name}]()\n'
+content_index = f'- [{course_name}](/)\n'
 # directory_name
 directory_name = ""
 
@@ -108,8 +108,8 @@ for module in modules:
     else:
         print(f"Directory already exists: {directory_path}")
 
-    # Add link to index
-    content_index += f'- [{module_name}]({directory_name}/)\n'
+    # Add module_name to index
+    content_index += f'- {module_name}\n'
 
     # Get the module items
     module_items = module.get_module_items()
@@ -141,7 +141,7 @@ for module in modules:
             content = get_images(content)
             markdown_content = content_to_markdown(content)
             save_content_to_file(markdown_content, file_path)
-            content_index += f'{"  " * depth}  - [{module_item_title}](filename)\n'
+            content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
 
         # If it is an assignment get its content
         elif module_item_type == "Assignment":
@@ -151,13 +151,13 @@ for module in modules:
             content = get_images(content)
             markdown_content = content_to_markdown(content)
             save_content_to_file(markdown_content, file_path)
-            content_index += f'{"  " * depth}  - [{module_item_title}](filename)\n'
+            content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
 
         # If it is an external URL get its content
         elif module_item_type == "ExternalUrl":
             markdown_content = f'[Link naar {module_item.title}]({module_item.external_url})'
             save_content_to_file(markdown_content, file_path)
-            content_index += f'{"  " * depth}  - [{module_item_title}](filename)\n'
+            content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
 
         # If it is a subheader get its content
         elif module_item_type == "SubHeader":
@@ -172,8 +172,6 @@ for module in modules:
             print(f"    Module Item Type not supported: {module_item_type}")
             continue
 
-        # Add link to index
-        content_index += f'{"  " * depth}  - [{module_item_title}]({directory_name}/{counter:02d}-{sanitize_name(module_item.title)}.md)\n'
         counter += 1
 
 save_content_to_file(content_index, "_sidebar.md")
