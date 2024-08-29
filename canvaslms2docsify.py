@@ -30,8 +30,34 @@ def sanitize_name(module_name):
     module_name = module_name.lower()
     return module_name
 
-### Main script
+# Function to get the images from the content, download them and replace the image tags
+def get_images(content):
+    # Get the images data-api-endpoint file numbers
+    image_ids = re.findall(r'/files/(\d+)', content)
+    print(f"      Images: {image_ids}")
 
+    # Get the file objects for the images
+    for image_id in image_ids:
+        image = course.get_file(image_id)
+        image_name = image.display_name
+        print(f"      Image Name: {image_name}")
+
+        # Remove the extension from the image name for the alt text
+        image_alt = re.sub(r'\..*$', '', image_name)
+
+        # Download the image
+        image_path = os.path.join(directory_path, image_name)
+        if not os.path.exists(image_path):
+            print(f"      Downloading image: {image_name}")
+            image.download(image_path)
+        else:
+            print(f"      Image already exists: {image_path}")
+
+        # Replace the original image tag with our own
+        content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)
+    return content
+
+### Main script
 # Initialize a new Canvas object
 canvas = Canvas(api_endpoint, auth_token)
 # Get the course object
@@ -102,30 +128,8 @@ for module in modules:
 
         # Check if the content contains any images
         if '<img' in content:
-            # Get the images data-api-endpoint file numbers
-            image_ids = re.findall(r'/files/(\d+)', content)
-            print(f"      Images: {image_ids}")
-
-            # Get the file objects for the images
-            for image_id in image_ids:
-                image = course.get_file(image_id)
-                image_name = image.display_name
-                print(f"      Image Name: {image_name}")
-
-                # Remove the extension from the image name for the alt text
-                image_alt = re.sub(r'\..*$', '', image_name)
-
-                # Download the image
-                image_path = os.path.join(directory_path, image_name)
-                if not os.path.exists(image_path):
-                    print(f"      Downloading image: {image_name}")
-                    image.download(image_path)
-                else:
-                    print(f"      Image already exists: {image_path}")
-
-                # Replace the original image tag with our own
-                content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)
-        
+            content = get_images(content)
+            
         # Set the title as h1 and convert the content to github flavoured markdown
         markdown_content = f"# {module_item_title}\n\n" 
         markdown_content += convert_text(content, input_format="html", output_format="gfm")
