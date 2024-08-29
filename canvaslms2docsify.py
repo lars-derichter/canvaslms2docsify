@@ -64,14 +64,17 @@ def content_to_markdown(content):
     markdown_content += convert_text(content, input_format="html", output_format="gfm")
     return markdown_content
 
-# Save the content to a markdown file
-def save_content_to_file(markdown_content):
-    file_name = f"{counter:02d}-{sanitize_name(module_item.title)}.md"
-    file_path = os.path.join(directory_path, file_name)
-    with open(file_path, "w") as file:
-        file.write(markdown_content)
-        print(f"Saved content to: {file_path}")
+def get_file_path(module_item_title):
+    filename = f"{counter:02d}-{sanitize_name(module_item.title)}.md"
+    file_path = os.path.join(directory_path, filename)
+    return file_path
 
+# Save the content to a markdown file
+def save_content_to_file(content, full_file_name):
+    file_path = os.path.join(output_dir, full_file_name)
+    with open(file_path, "w") as file:
+        file.write(content)
+        print(f"Saved content to: {file_path}")
 
 ### Main script
 # Initialize a new Canvas object
@@ -84,8 +87,8 @@ print(f"Course Name: {course_name}")
 
 # Create index
 content_index = f'- [{course_name}]()\n'
-# Create depth counter
-depth = 0
+# directory_name
+directory_name = ""
 
 # Get the course modules
 modules = course.get_modules()
@@ -106,7 +109,7 @@ for module in modules:
         print(f"Directory already exists: {directory_path}")
 
     # Add link to index
-    content_index += f'{"  " * depth}- [{module_name}]({directory_name}/)\n'
+    content_index += f'- [{module_name}]({directory_name}/)\n'
 
     # Get the module items
     module_items = module.get_module_items()
@@ -120,6 +123,12 @@ for module in modules:
         module_item_title = module_item.title
         print(f"Module Item Title: {module_item_title}")
 
+        # Get the file name
+        file_path = get_file_path(module_item_title)
+
+        # Set depth counter
+        depth = 1
+
         # Get the module item type
         module_item_type = module_item.type
         print(f"    Module Item Type: {module_item_type}")
@@ -131,7 +140,8 @@ for module in modules:
             content = page.body
             content = get_images(content)
             markdown_content = content_to_markdown(content)
-            save_content_to_file(markdown_content)
+            save_content_to_file(markdown_content, file_path)
+            content_index += f'{"  " * depth}  - [{module_item_title}](filename)\n'
 
         # If it is an assignment get its content
         elif module_item_type == "Assignment":
@@ -140,25 +150,32 @@ for module in modules:
             content = assignment.description
             content = get_images(content)
             markdown_content = content_to_markdown(content)
-            save_content_to_file(markdown_content)
+            save_content_to_file(markdown_content, file_path)
+            content_index += f'{"  " * depth}  - [{module_item_title}](filename)\n'
 
         # If it is an external URL get its content
         elif module_item_type == "ExternalUrl":
             markdown_content = f'[Link naar {module_item.title}]({module_item.external_url})'
-            save_content_to_file(markdown_content)
+            save_content_to_file(markdown_content, file_path)
+            content_index += f'{"  " * depth}  - [{module_item_title}](filename)\n'
 
         # If it is a subheader get its content
         elif module_item_type == "SubHeader":
             markdown_content = f'# {module_item.title}'
-            save_content_to_file(markdown_content)
-            depth = 1
+            save_content_to_file(markdown_content, file_path)
+            content_index += f'  - {module_item_title}\n'
+            depth = 2
 
         # [TODO] Add support for files and external tools
 
         else:
             print(f"    Module Item Type not supported: {module_item_type}")
             continue
+
+        # Add link to index
+        content_index += f'{"  " * depth}  - [{module_item_title}]({directory_name}/{counter:02d}-{sanitize_name(module_item.title)}.md)\n'
         counter += 1
 
+save_content_to_file(content_index, "_sidebar.md")
 # Exit the script
 exit(0) 
