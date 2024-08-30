@@ -31,7 +31,7 @@ def sanitize_name(name):
     return name
 
 # Function to get the images from the content, download them and replace the image tags
-def get_images(content):
+def get_images(content, download_directory):
     if '<img' in content:
     # Get the images data-api-endpoint file numbers
         image_ids = re.findall(r'/files/(\d+)', content)
@@ -47,7 +47,7 @@ def get_images(content):
             image_alt = re.sub(r'\..*$', '', image_name)
 
             # Download the image
-            image_path = os.path.join(directory_path, image_name)
+            image_path = os.path.join(download_directory, image_name)
             if not os.path.exists(image_path):
                 print(f"      Downloading image: {image_name}")
                 image.download(image_path)
@@ -64,7 +64,7 @@ def content_to_markdown(content):
     markdown_content += convert_text(content, input_format="html", output_format="gfm")
     return markdown_content
 
-def get_file_path(module_item_title):
+def get_file_path(module_item_title, directory_path, counter):
     filename = f"{counter:02d}-{sanitize_name(module_item.title)}.md"
     file_path = os.path.join(directory_path, filename)
     return file_path
@@ -124,7 +124,7 @@ for module in modules:
         print(f"Module Item Title: {module_item_title}")
 
         # Get the file name
-        file_path = get_file_path(module_item_title)
+        file_path = get_file_path(module_item_title, directory_path, counter)
 
         # Set depth counter
         depth = 1
@@ -138,7 +138,7 @@ for module in modules:
             module_item_page_url = module_item.page_url
             page = course.get_page(module_item_page_url)
             content = page.body
-            content = get_images(content)
+            content = get_images(content, directory_path)
             markdown_content = content_to_markdown(content)
             save_content_to_file(markdown_content, file_path)
             content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
@@ -148,7 +148,7 @@ for module in modules:
             module_item_assignment_id = module_item.content_id
             assignment = course.get_assignment(module_item_assignment_id)
             content = assignment.description
-            content = get_images(content)
+            content = get_images(content, directory_path)
             markdown_content = content_to_markdown(content)
             save_content_to_file(markdown_content, file_path)
             content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
