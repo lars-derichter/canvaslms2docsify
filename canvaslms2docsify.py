@@ -64,22 +64,30 @@ def process_module_item(module_item, directory_path, counter, current_depth):
     if module_item_type == "Page":
         page = course.get_page(module_item.page_url)
         content = get_images(page.body, directory_path)
+        markdown_content = content_to_markdown(content, module_item_title)
+        save_content_to_file(markdown_content, file_path)
+        return file_path, module_item_title, current_depth
+    
     elif module_item_type == "Assignment":
         assignment = course.get_assignment(module_item.content_id)
         content = get_images(assignment.description, directory_path)
+        markdown_content = content_to_markdown(content, module_item_title)
+        save_content_to_file(markdown_content, file_path)
+        return file_path, module_item_title, current_depth
+    
     elif module_item_type == "ExternalUrl":
         content = f'[Link naar {module_item_title}]({module_item.external_url})'
+        save_content_to_file(content, file_path)
+        return file_path, module_item_title, current_depth
+    
     elif module_item_type == "SubHeader":
-        content = f'# {module_item_title}'
+        # For subheaders, no file is created; only add a non-link list item to the index.
         current_depth = 2  # Set depth to 2 after encountering a SubHeader
+        return None, f'{module_item_title}', current_depth
+    
     else:
         logging.warning(f"Module item type not supported: {module_item_type}")
         return None, None, current_depth
-    
-    markdown_content = content_to_markdown(content, module_item_title)
-    save_content_to_file(markdown_content, file_path)
-    
-    return file_path, module_item_title, current_depth
 
 # Main script
 canvas = Canvas(api_endpoint, auth_token)
@@ -102,8 +110,11 @@ for module in modules:
     
     for counter, module_item in enumerate(module_items, 1):
         file_path, item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
-        if file_path:
-            content_index += f'{"  " * current_depth}  - [{item_title}]({file_path})\n'
+        if item_title:
+            if file_path:
+                content_index += f'{"  " * current_depth}  - [{item_title}]({file_path})\n'
+            else:
+                content_index += f'{"  " * current_depth}  - {item_title}\n'
 
 save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
 logging.info("Script completed successfully.")
