@@ -17,18 +17,18 @@ output_dir = os.environ.get("OUTPUT_DIR") or "docs"
 
 ### Helper functions
 # Function to sanitize directory and filenames
-def sanitize_name(module_name):
+def sanitize_name(name):
     # Remove special characters
-    module_name = re.sub(r'[^a-zA-Z0-9\s]', '', module_name)
+    name = re.sub(r'[^a-zA-Z0-9\s]', '', name)
     # Replace spaces with hyphens
-    module_name = module_name.replace(" ", "-")
+    name = name.replace(" ", "-")
     # Replace multiple hyphens with a single hyphen
-    module_name = re.sub(r'-+', '-', module_name)
+    name = re.sub(r'-+', '-', name)
     # strip leading and trailing hyphens
-    module_name = module_name.strip("-")
+    name = name.strip("-")
     # Convert to lowercase
-    module_name = module_name.lower()
-    return module_name
+    name = name.lower()
+    return name
 
 # Function to get the images from the content, download them and replace the image tags
 def get_images(content):
