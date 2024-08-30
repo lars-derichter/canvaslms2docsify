@@ -1,179 +1,109 @@
 import os
 import re
+import logging
 from canvasapi import Canvas
+from canvasapi.exceptions import ResourceDoesNotExist
 from panflute import *
 
-### Set the following environment variables before running the script
-# Define the LMS API endpoint and authentication token
-api_endpoint = os.environ.get("API_ENDPOINT") or "https://canvas.instructure.com"
-auth_token = os.environ.get("AUTH_TOKEN") or "YOUR_AUTH"
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Define the course ID
-course_id = os.environ.get("COURSE_ID") or "YOUR_COURSE_ID"
+# Set environment variables or use default values
+api_endpoint = os.getenv("API_ENDPOINT", "https://canvas.instructure.com")
+auth_token = os.getenv("AUTH_TOKEN", "YOUR_AUTH")
+course_id = os.getenv("COURSE_ID", "YOUR_COURSE_ID")
+output_dir = os.getenv("OUTPUT_DIR", "docs")
 
-# Define the directory where the markdown files will be saved
-output_dir = os.environ.get("OUTPUT_DIR") or "docs"
-
-
-### Helper functions
-# Function to sanitize directory and filenames
+# Helper functions
 def sanitize_name(name):
-    # Remove special characters
     name = re.sub(r'[^a-zA-Z0-9\s]', '', name)
-    # Replace spaces with hyphens
-    name = name.replace(" ", "-")
-    # Replace multiple hyphens with a single hyphen
-    name = re.sub(r'-+', '-', name)
-    # strip leading and trailing hyphens
-    name = name.strip("-")
-    # Convert to lowercase
-    name = name.lower()
+    name = re.sub(r'\s+', '-', name.strip()).lower()
     return name
 
-# Function to get the images from the content, download them and replace the image tags
 def get_images(content, download_directory):
-    if '<img' in content:
-    # Get the images data-api-endpoint file numbers
-        image_ids = re.findall(r'/files/(\d+)', content)
-        print(f"      Images: {image_ids}")
-
-        # Get the file objects for the images
-        for image_id in image_ids:
+    image_ids = re.findall(r'/files/(\d+)', content)
+    for image_id in image_ids:
+        try:
+            logging.info(f"Attempting to download image with ID: {image_id}")
             image = course.get_file(image_id)
-            image_name = image.display_name
-            print(f"      Image Name: {image_name}")
-
-            # Remove the extension from the image name for the alt text
-            image_alt = re.sub(r'\..*$', '', image_name)
-
-            # Download the image
+            image_name = sanitize_name(image.display_name)
             image_path = os.path.join(download_directory, image_name)
+            
             if not os.path.exists(image_path):
-                print(f"      Downloading image: {image_name}")
+                logging.info(f"Downloading image: {image_name}")
                 image.download(image_path)
             else:
-                print(f"      Image already exists: {image_path}")
-
-            # Replace the original image tag with our own
-            content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)  
+                logging.info(f"Image already exists: {image_path}")
+            
+            image_alt = re.sub(r'\..*$', '', image_name)
+            content = re.sub(r'<img.*?src=".*?/files/' + image_id + '".*?>', f'<img src="{image_name}" alt="{image_alt}" />', content)
+        
+        except ResourceDoesNotExist:
+            logging.error(f"File with ID {image_id} not found in course {course_id}. Skipping this image.")
+            continue  # Skip to the next image if this one fails
+    
     return content
 
-def content_to_markdown(content):
-     # Set the title as h1 and convert the content to github flavoured markdown
-    markdown_content = f"# {module_item_title}\n\n"
+def content_to_markdown(content, title):
+    markdown_content = f"# {title}\n\n"
     markdown_content += convert_text(content, input_format="html", output_format="gfm")
     return markdown_content
 
-def get_file_path(module_item_title, directory_path, counter):
-    filename = f"{counter:02d}-{sanitize_name(module_item.title)}.md"
-    file_path = os.path.join(directory_path, filename)
-    return file_path
-
-# Save the content to a markdown file
-def save_content_to_file(content, full_file_name):
-    file_path = os.path.join(output_dir, full_file_name)
+def save_content_to_file(content, file_path):
     with open(file_path, "w") as file:
         file.write(content)
-        print(f"Saved content to: {file_path}")
+    logging.info(f"Saved content to: {file_path}")
 
-### Main script
-# Initialize a new Canvas object
-canvas = Canvas(api_endpoint, auth_token)
-# Get the course object
-course = canvas.get_course(course_id)
-# Get the course name
-course_name = course.name
-print(f"Course Name: {course_name}")
-
-# Create index
-content_index = f'- [{course_name}](/)\n'
-# directory_name
-directory_name = ""
-
-# Get the course modules
-modules = course.get_modules()
-# Loop through each module
-for module in modules:
-    # Get the module name
-    module_name = module.name
-
-    # Sanitize the module name
-    directory_name = sanitize_name(module_name)
-    directory_path = os.path.join(output_dir, directory_name)
-
-    # Create the directory if it does not exist
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
-        print(f"Created directory: {directory_path}")
+def process_module_item(module_item, directory_path, counter, current_depth):
+    module_item_title = module_item.title
+    logging.info(f"Processing module item: {module_item_title}")
+    
+    file_path = os.path.join(directory_path, f"{counter:02d}-{sanitize_name(module_item_title)}.md")
+    module_item_type = module_item.type
+    
+    if module_item_type == "Page":
+        page = course.get_page(module_item.page_url)
+        content = get_images(page.body, directory_path)
+    elif module_item_type == "Assignment":
+        assignment = course.get_assignment(module_item.content_id)
+        content = get_images(assignment.description, directory_path)
+    elif module_item_type == "ExternalUrl":
+        content = f'[Link naar {module_item_title}]({module_item.external_url})'
+    elif module_item_type == "SubHeader":
+        content = f'# {module_item_title}'
+        current_depth = 2  # Set depth to 2 after encountering a SubHeader
     else:
-        print(f"Directory already exists: {directory_path}")
+        logging.warning(f"Module item type not supported: {module_item_type}")
+        return None, None, current_depth
+    
+    markdown_content = content_to_markdown(content, module_item_title)
+    save_content_to_file(markdown_content, file_path)
+    
+    return file_path, module_item_title, current_depth
 
-    # Add module_name to index
-    content_index += f'- {module_name}\n'
+# Main script
+canvas = Canvas(api_endpoint, auth_token)
+course = canvas.get_course(course_id)
+logging.info(f"Course Name: {course.name}")
 
-    # Get the module items
+content_index = f'- [{course.name}](/)\n'
+
+modules = course.get_modules()
+for module in modules:
+    directory_name = sanitize_name(module.name)
+    directory_path = os.path.join(output_dir, directory_name)
+    os.makedirs(directory_path, exist_ok=True)
+    
+    logging.info(f"Processing module: {module.name}")
+    content_index += f'- {module.name}\n'
+    
     module_items = module.get_module_items()
+    current_depth = 1  # Initialize depth at the start of each module
+    
+    for counter, module_item in enumerate(module_items, 1):
+        file_path, item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
+        if file_path:
+            content_index += f'{"  " * current_depth}  - [{item_title}]({file_path})\n'
 
-    # Loop through each module item
-    content = ""
-    markdown_content = ""
-    counter = 1; # Counter for the markdown files starting from 01
-    for module_item in module_items:
-        # Get the module item title
-        module_item_title = module_item.title
-        print(f"Module Item Title: {module_item_title}")
-
-        # Get the file name
-        file_path = get_file_path(module_item_title, directory_path, counter)
-
-        # Set depth counter
-        depth = 1
-
-        # Get the module item type
-        module_item_type = module_item.type
-        print(f"    Module Item Type: {module_item_type}")
-
-        # If it is a page get its content
-        if module_item_type == "Page":
-            module_item_page_url = module_item.page_url
-            page = course.get_page(module_item_page_url)
-            content = page.body
-            content = get_images(content, directory_path)
-            markdown_content = content_to_markdown(content)
-            save_content_to_file(markdown_content, file_path)
-            content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
-
-        # If it is an assignment get its content
-        elif module_item_type == "Assignment":
-            module_item_assignment_id = module_item.content_id
-            assignment = course.get_assignment(module_item_assignment_id)
-            content = assignment.description
-            content = get_images(content, directory_path)
-            markdown_content = content_to_markdown(content)
-            save_content_to_file(markdown_content, file_path)
-            content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
-
-        # If it is an external URL get its content
-        elif module_item_type == "ExternalUrl":
-            markdown_content = f'[Link naar {module_item.title}]({module_item.external_url})'
-            save_content_to_file(markdown_content, file_path)
-            content_index += f'{"  " * depth}  - [{module_item_title}]({file_path})\n'
-
-        # If it is a subheader get its content
-        elif module_item_type == "SubHeader":
-            markdown_content = f'# {module_item.title}'
-            save_content_to_file(markdown_content, file_path)
-            content_index += f'  - {module_item_title}\n'
-            depth = 2
-
-        # [TODO] Add support for files and external tools
-
-        else:
-            print(f"    Module Item Type not supported: {module_item_type}")
-            continue
-
-        counter += 1
-
-save_content_to_file(content_index, "_sidebar.md")
-# Exit the script
-exit(0) 
+save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
+logging.info("Script completed successfully.")
