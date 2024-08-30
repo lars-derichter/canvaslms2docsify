@@ -89,6 +89,9 @@ def process_module_item(module_item, directory_path, counter, current_depth):
         logging.warning(f"Module item type not supported: {module_item_type}")
         return None, None, current_depth
 
+def get_relative_path(file_path):
+    return os.path.relpath(file_path, output_dir)
+
 # Main script
 canvas = Canvas(api_endpoint, auth_token)
 course = canvas.get_course(course_id)
@@ -103,7 +106,7 @@ for module in modules:
     os.makedirs(directory_path, exist_ok=True)
     
     logging.info(f"Processing module: {module.name}")
-    content_index += f'- {module.name}\n'
+    content_index += f'\n- {module.name}\n'
     
     module_items = module.get_module_items()
     current_depth = 1  # Initialize depth at the start of each module
@@ -112,9 +115,10 @@ for module in modules:
         file_path, item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
         if item_title:
             if file_path:
-                content_index += f'{"  " * current_depth}  - [{item_title}]({file_path})\n'
+                relative_file_path = get_relative_path(file_path)
+                content_index += f'{"  " * current_depth}  - [{item_title}]({relative_file_path})\n'
             else:
-                content_index += f'{"  " * current_depth}  - {item_title}\n'
+                content_index += f'  - {item_title}\n' # Add a non-link list item for SubHeader
 
 save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
 logging.info("Script completed successfully.")
