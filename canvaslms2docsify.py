@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+import shutil
 from canvasapi import Canvas
 from canvasapi.exceptions import ResourceDoesNotExist
 from panflute import *
@@ -123,4 +124,11 @@ for module in modules:
                 content_index += f'    - {item_title}\n' # Add a non-link list item for SubHeader
 
 save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
+
+# copy inex.html from template to output_dir
+shutil.copyfile("templates/index.html", os.path.join(output_dir, "index.html"))
+# create .nojekyll to prevent GitHub Pages from ignoring files starting with an underscore
+with open(os.path.join(output_dir, ".nojekyll"), "w") as file:
+    pass    
+
 logging.info("Script completed successfully.")
