@@ -17,9 +17,7 @@ output_dir = os.getenv("OUTPUT_DIR", "docs")
 
 # Helper functions
 def sanitize_name(name):
-    name = re.sub(r'[^a-zA-Z0-9\s]', '', name)
-    name = re.sub(r'\s+', '-', name.strip()).lower()
-    return name
+    return re.sub(r'\s+', '-', re.sub(r'[^a-zA-Z0-9\s]', '', name.strip()).lower())
 
 def get_images(content, download_directory):
     image_ids = re.findall(r'/files/(\d+)', content)
@@ -46,9 +44,7 @@ def get_images(content, download_directory):
     return content
 
 def content_to_markdown(content, title):
-    markdown_content = f"# {title}\n\n"
-    markdown_content += convert_text(content, input_format="html", output_format="gfm")
-    return markdown_content
+    return f"# {title}\n\n{convert_text(content, input_format='html', output_format='gfm')}"
 
 def save_content_to_file(content, file_path):
     with open(file_path, "w") as file:
@@ -82,18 +78,31 @@ def process_module_item(module_item, directory_path, counter, current_depth):
         return file_path, module_item_title, current_depth
     
     elif module_item_type == "SubHeader":
-        # For subheaders, no file is created; only add a non-link list item to the index.
-        current_depth = 2  # Set depth to 2 after encountering a SubHeader
-        counter -= 1 # Decrement counter to avoid skipping a number in the file name
+        # Reset the depth to 1 (flush with other level 1 items) for the subheader
+        current_depth = 1
         return None, f'{module_item_title}', current_depth
     
     else:
         logging.warning(f"Module item type not supported: {module_item_type}")
-        counter -= 1 # Decrement counter to avoid skipping a number in the file name
         return None, None, current_depth
 
 def get_relative_path(file_path):
     return os.path.relpath(file_path, output_dir)
+
+# Function to handle copying of Docsify files
+def copy_docsify_files(output_directory):
+    try:
+        shutil.copyfile("templates/index.html", os.path.join(output_directory, "index.html"))
+        logging.info("index.html copied successfully.")
+    except FileNotFoundError:
+        logging.error("templates/index.html not found. Skipping index.html copy.")
+
+# Function to create the .nojekyll file
+def create_nojekyll_file(output_directory):
+    nojekyll_path = os.path.join(output_directory, ".nojekyll")
+    with open(nojekyll_path, "w") as file:
+        pass
+    logging.info(f".nojekyll file created at {nojekyll_path}")
 
 # Main script
 canvas = Canvas(api_endpoint, auth_token)
@@ -109,26 +118,32 @@ for module in modules:
     os.makedirs(directory_path, exist_ok=True)
     
     logging.info(f"Processing module: {module.name}")
-    content_index += f'- {module.name}\n'
+    # If module name starts with a number followed by a dot, treat it as an ordered list item
+    if re.match(r'^\d+\.', module.name):
+        content_index += f'{module.name}\n'  # Add module name as an ordered list item
+    else:
+        content_index += f'- {module.name}\n'
     
     module_items = module.get_module_items()
     current_depth = 1  # Initialize depth at the start of each module
     
-    for counter, module_item in enumerate(module_items, 1):
+    counter = 1  # Manage the counter outside the loop to handle non-file items like SubHeader
+    for module_item in module_items:
         file_path, item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
         if item_title:
             if file_path:
                 relative_file_path = get_relative_path(file_path)
                 content_index += f'{"    " * current_depth}- [{item_title}]({relative_file_path})\n'
+                current_depth = 2  # After a file link, set the depth to 2 for subsequent items
+                counter += 1  # Increment counter only if a file was created
             else:
-                content_index += f'    - {item_title}\n' # Add a non-link list item for SubHeader
+                content_index += f'    - {item_title}\n'  # Add a non-link list item for SubHeader (flush with level 1)
+                current_depth = 2  # The next items after a subheader should be indented
 
 save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
 
-# copy inex.html from template to output_dir
-shutil.copyfile("templates/index.html", os.path.join(output_dir, "index.html"))
-# create .nojekyll to prevent GitHub Pages from ignoring files starting with an underscore
-with open(os.path.join(output_dir, ".nojekyll"), "w") as file:
-    pass    
+# Handle copying Docsify HTML and creating .nojekyll
+copy_docsify_files(output_dir)
+create_nojekyll_file(output_dir)
 
 logging.info("Script completed successfully.")
