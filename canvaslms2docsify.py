@@ -19,6 +19,13 @@ output_dir = os.getenv("OUTPUT_DIR", "docs")
 def sanitize_name(name):
     return re.sub(r'\s+', '-', re.sub(r'[^a-zA-Z0-9\s]', '', name.strip()).lower())
 
+def markdownify_name(name):
+    # Escape special Markdown characters: *, _, `
+    markdown_name = re.sub(r'([*_`])', r'\\\1', name)
+    # Escape periods that follow a number and are followed by a space (to prevent numbered lists)
+    markdown_name = re.sub(r'(\d+)\. ', r'\1\\. ', markdown_name)
+    return markdown_name
+
 def get_images(content, download_directory):
     image_ids = re.findall(r'/files/(\d+)', content)
     for image_id in image_ids:
@@ -118,11 +125,7 @@ for module in modules:
     os.makedirs(directory_path, exist_ok=True)
     
     logging.info(f"Processing module: {module.name}")
-    # If module name starts with a number followed by a dot, treat it as an ordered list item
-    if re.match(r'^\d+\.', module.name):
-        content_index += f'{module.name}\n'  # Add module name as an ordered list item
-    else:
-        content_index += f'- {module.name}\n'
+    content_index += f'- {markdownify_name(module.name)}\n'
     
     module_items = module.get_module_items()
     current_depth = 1  # Initialize depth at the start of each module
