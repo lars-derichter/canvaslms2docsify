@@ -83,10 +83,12 @@ def process_module_item(module_item, directory_path, counter, current_depth):
     elif module_item_type == "SubHeader":
         # For subheaders, no file is created; only add a non-link list item to the index.
         current_depth = 2  # Set depth to 2 after encountering a SubHeader
+        counter -= 1 # Decrement counter to avoid skipping a number in the file name
         return None, f'{module_item_title}', current_depth
     
     else:
         logging.warning(f"Module item type not supported: {module_item_type}")
+        counter -= 1 # Decrement counter to avoid skipping a number in the file name
         return None, None, current_depth
 
 def get_relative_path(file_path):
@@ -97,7 +99,7 @@ canvas = Canvas(api_endpoint, auth_token)
 course = canvas.get_course(course_id)
 logging.info(f"Course Name: {course.name}")
 
-content_index = f'- [{course.name}](/)\n'
+content_index = f'\n- [{course.name}](/)\n'
 
 modules = course.get_modules()
 for module in modules:
@@ -116,9 +118,9 @@ for module in modules:
         if item_title:
             if file_path:
                 relative_file_path = get_relative_path(file_path)
-                content_index += f'{"  " * current_depth}  - [{item_title}]({relative_file_path})\n'
+                content_index += f'{"    " * current_depth}- [{item_title}]({relative_file_path})\n'
             else:
-                content_index += f'  - {item_title}\n' # Add a non-link list item for SubHeader
+                content_index += f'\n    - {item_title}\n' # Add a non-link list item for SubHeader
 
 save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
 logging.info("Script completed successfully.")
