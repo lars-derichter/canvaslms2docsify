@@ -125,45 +125,60 @@ def copy_template_directory(template_directory, output_directory, context):
     except Exception as e:
         logging.error(f"Error copying template directory: {e}")
 
-def generate_sidebars(modules_info, output_dir, course_name, course_index_path):
-    root_sidebar_path = os.path.join(output_dir, "_sidebar.md")
-    root_content = f"- [{course_name}]({get_relative_path(course_index_path, output_dir)})\n"
+# New function to generate module-specific sidebars
+def generate_sidebars_from_index(index_file, output_dir):
+    with open(index_file, 'r') as f:
+        lines = f.readlines()
     
-    for module_name, module_info in modules_info.items():
-        if module_info['pages']:
-            first_page_path = module_info['pages'][0]['relative_path']
-            if first_page_path:
-                root_content += f"- [{module_name}]({get_relative_path(first_page_path, output_dir)})\n"
+    module_links = {}
+    current_module = None
+
+    for line in lines:
+        indent_level = len(line) - len(line.lstrip())
+        if indent_level == 0 and line.startswith('- '):
+            # Top-level module link
+            match = re.match(r'- \[(.*?)\]\((.*?)\)', line)
+            if match:
+                module_name, link = match.groups()
+                module_links[module_name] = {'first_page': link, 'pages': [], 'raw_lines': [line]}
+                current_module = module_name
             else:
-                root_content += f"- {module_name}\n"
-        else:
-            root_content += f"- {module_name}\n"
+                module_links[line.strip('- ').strip()] = {'first_page': None, 'pages': [], 'raw_lines': [line]}
+                current_module = line.strip('- ').strip()
+        elif current_module:
+            # Subheader or page link
+            module_links[current_module]['raw_lines'].append(line)
+            if indent_level > 0 and ']' in line:
+                module_links[current_module]['pages'].append(line.strip())
+    
+    # Generate root _sidebar.md
+    root_sidebar = '- [Course Home](_index.md)\n'
+    for module_name, info in module_links.items():
+        if info['first_page']:
+            root_sidebar += f'- [{module_name}]({info["first_page"]})\n'
+    
+    save_content_to_file(root_sidebar, os.path.join(output_dir, '_sidebar.md'))
+    
+    # Generate module-specific _sidebar.md files
+    for module_name, info in module_links.items():
+        module_dir = os.path.join(output_dir, sanitize_name(module_name))
+        if not os.path.exists(module_dir):
+            continue
 
-    save_content_to_file(root_content, root_sidebar_path)
-
-    for module_name, module_info in modules_info.items():
-        module_sidebar_path = os.path.join(module_info['directory'], "_sidebar.md")
-        module_content = f"- [{course_name}]({get_relative_path(course_index_path, module_info['directory'])})\n"
-
-        for other_module_name, other_module_info in modules_info.items():
+        sidebar_content = '- [Course Home](_index.md)\n'
+        
+        for other_module_name, other_info in module_links.items():
             if other_module_name != module_name:
-                if other_module_info['pages']:
-                    first_page_path = other_module_info['pages'][0]['relative_path']
-                    if first_page_path:
-                        module_content += f"- [{other_module_name}]({get_relative_path(first_page_path, module_info['directory'])})\n"
-                    else:
-                        module_content += f"- {other_module_name}\n"
+                if other_info['first_page']:
+                    sidebar_content += f'- [{other_module_name}](../{sanitize_name(other_module_name)}/{other_info["first_page"]})\n'
                 else:
-                    module_content += f"- {other_module_name}\n"
+                    sidebar_content += f'- {other_module_name}\n'
         
-        module_content += f"\n- {module_name}\n"
-        for page_info in module_info['pages']:
-            if page_info['relative_path']:
-                module_content += f"{'    ' * page_info['depth']}- [{page_info['title']}]({get_relative_path(page_info['relative_path'], module_info['directory'])})\n"
-            else:
-                module_content += f"{'    ' * page_info['depth']}- {page_info['title']}\n"
-        
-        save_content_to_file(module_content, module_sidebar_path)
+        # Add localized content for the current module
+        sidebar_content += '\n'.join(info['raw_lines'])
+        sidebar_content = re.sub(r'\(' + re.escape(sanitize_name(module_name)) + r'/', '(', sidebar_content)
+
+        save_content_to_file(sidebar_content, os.path.join(module_dir, '_sidebar.md'))
 
 # Main script
 
@@ -189,37 +204,25 @@ for module in modules:
     
     module_items = module.get_module_items()
     current_depth = 1
-
-    counter = 1
-    module_pages = []
     
+    counter = 1
     for module_item in module_items:
         file_path, module_item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
         if module_item_title:
             if file_path:
-                relative_file_path = get_relative_path(file_path, directory_path)
-                module_pages.append({
-                    'title': module_item_title,
-                    'relative_path': relative_file_path,
-                    'depth': current_depth - 1
-                })
+                relative_file_path = get_relative_path(file_path)
+                content_index += f'{"    " * current_depth}- [{item_title}]({relative_file_path})\n'
                 current_depth = 2
                 counter += 1
             else:
-                module_pages.append({
-                    'title': module_item_title,
-                    'relative_path': None,
-                    'depth': current_depth - 1
-                })
+                content_index += f'    - {item_title}\n'
                 current_depth = 2
-    
-    modules_info[module.name] = {
-        'directory': directory_path,
-        'pages': module_pages
-    }
 
-# Generate _sidebar.md files
-generate_sidebars(modules_info, output_dir, course.name, course_index_path)
+index_file_path = os.path.join(output_dir, "_index.md")
+save_content_to_file(content_index, index_file_path)
+
+# Generate _sidebar.md files based on _index.md
+generate_sidebars_from_index(index_file_path, output_dir)
 
 # Copy the contents of the template directory to the output directory, processing .tmpl files
 copy_template_directory(template_dir, output_dir, context)
