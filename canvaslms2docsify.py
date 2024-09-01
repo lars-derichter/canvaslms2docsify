@@ -19,7 +19,9 @@ template_dir = os.getenv("TEMPLATE_DIR", "template")  # Set a template directory
 
 # Helper functions
 def sanitize_name(name):
-    return re.sub(r'\s+', '-', re.sub(r'[^a-zA-Z0-9\s]', '', name.strip()).lower())
+    sanitized_name = re.sub(r'\s+', '-', re.sub(r'[^a-zA-Z0-9\s]', '', name.strip()).lower())
+    # Remove leading and trailing hyphens, and replace multiple hyphens with a single hyphen
+    return re.sub(r'(^-+|-+$|-{2,})', '', sanitized_name)
 
 def markdownify_name(name):
     # Escape special Markdown characters: *, _, `
