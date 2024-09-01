@@ -2,7 +2,7 @@ import os
 import re
 import logging
 import shutil
-import pystache  # Importing pystache for Mustache templating
+import pystache
 from canvasapi import Canvas
 from canvasapi.exceptions import ResourceDoesNotExist
 from panflute import *
@@ -15,16 +15,14 @@ api_endpoint = os.getenv("API_ENDPOINT", "https://canvas.instructure.com")
 auth_token = os.getenv("AUTH_TOKEN", "YOUR_AUTH")
 course_id = os.getenv("COURSE_ID", "YOUR_COURSE_ID")
 output_dir = os.getenv("OUTPUT_DIR", "docs")
-template_dir = os.getenv("TEMPLATE_DIR", "template")  # Set a template directory path
+template_dir = os.getenv("TEMPLATE_DIR", "template")
 
 # Helper functions
 def sanitize_name(name):
     return re.sub(r'\s+', '-', re.sub(r'[^a-zA-Z0-9\s]', '', name.strip()).lower())
 
 def markdownify_name(name):
-    # Escape special Markdown characters: *, _, `
     markdown_name = re.sub(r'([*_`])', r'\\\1', name)
-    # Escape periods that follow a number and are followed by a space (to prevent numbered lists)
     markdown_name = re.sub(r'(\d+)\. ', r'\1\\. ', markdown_name)
     return markdown_name
 
@@ -48,7 +46,7 @@ def get_images(content, download_directory):
         
         except ResourceDoesNotExist:
             logging.error(f"File with ID {image_id} not found in course {course_id}. Skipping this image.")
-            continue  # Skip to the next image if this one fails
+            continue
     
     return content
 
@@ -87,9 +85,8 @@ def process_module_item(module_item, directory_path, counter, current_depth):
         return file_path, module_item_title, current_depth
     
     elif module_item_type == "SubHeader":
-        # Reset the depth to 1 (flush with other level 1 items) for the subheader
         current_depth = 1
-        return None, f'{module_item_title}', current_depth
+        return None, module_item_title, current_depth
     
     else:
         logging.warning(f"Module item type not supported: {module_item_type}")
@@ -98,39 +95,29 @@ def process_module_item(module_item, directory_path, counter, current_depth):
 def get_relative_path(file_path):
     return os.path.relpath(file_path, output_dir)
 
-# Function to copy and process template files using Mustache
 def copy_template_directory(template_directory, output_directory, context):
     try:
         if os.path.exists(template_directory):
             for root, dirs, files in os.walk(template_directory):
-                # Calculate the relative path and corresponding output directory
                 relative_path = os.path.relpath(root, template_directory)
                 dest_dir = os.path.join(output_directory, relative_path)
-                
-                # Ensure the destination directory exists
                 os.makedirs(dest_dir, exist_ok=True)
                 
                 for file_name in files:
                     template_file_path = os.path.join(root, file_name)
                     
-                    # Check if the file is a .tmpl file
                     if file_name.endswith('.tmpl'):
                         logging.info(f"Processing template file: {template_file_path}")
-                        # Read the template content
                         with open(template_file_path, 'r') as template_file:
                             template_content = template_file.read()
                         
-                        # Render the template with context using Mustache
                         rendered_content = pystache.render(template_content, context)
-                        
-                        # Save the rendered content without the .tmpl extension
-                        output_file_path = os.path.join(dest_dir, file_name[:-5])  # Remove .tmpl
+                        output_file_path = os.path.join(dest_dir, file_name[:-5])
                         with open(output_file_path, 'w') as output_file:
                             output_file.write(rendered_content)
                         logging.info(f"Rendered template saved to: {output_file_path}")
                     
                     else:
-                        # Copy non-template files as-is
                         shutil.copy2(template_file_path, dest_dir)
                         logging.info(f"Copied file: {template_file_path} to {dest_dir}")
         else:
@@ -138,17 +125,70 @@ def copy_template_directory(template_directory, output_directory, context):
     except Exception as e:
         logging.error(f"Error copying template directory: {e}")
 
+# New function to generate module-specific sidebars
+def generate_sidebars_from_index(index_file, output_dir):
+    with open(index_file, 'r') as f:
+        lines = f.readlines()
+    
+    module_links = {}
+    current_module = None
+
+    for line in lines:
+        indent_level = len(line) - len(line.lstrip())
+        if indent_level == 0 and line.startswith('- '):
+            # Top-level module link
+            match = re.match(r'- \[(.*?)\]\((.*?)\)', line)
+            if match:
+                module_name, link = match.groups()
+                module_links[module_name] = {'first_page': link, 'pages': [], 'raw_lines': [line]}
+                current_module = module_name
+            else:
+                module_links[line.strip('- ').strip()] = {'first_page': None, 'pages': [], 'raw_lines': [line]}
+                current_module = line.strip('- ').strip()
+        elif current_module:
+            # Subheader or page link
+            module_links[current_module]['raw_lines'].append(line)
+            if indent_level > 0 and ']' in line:
+                module_links[current_module]['pages'].append(line.strip())
+    
+    # Generate root _sidebar.md
+    root_sidebar = '- [Course Home](_index.md)\n'
+    for module_name, info in module_links.items():
+        if info['first_page']:
+            root_sidebar += f'- [{module_name}]({info["first_page"]})\n'
+    
+    save_content_to_file(root_sidebar, os.path.join(output_dir, '_sidebar.md'))
+    
+    # Generate module-specific _sidebar.md files
+    for module_name, info in module_links.items():
+        module_dir = os.path.join(output_dir, sanitize_name(module_name))
+        if not os.path.exists(module_dir):
+            continue
+
+        sidebar_content = '- [Course Home](_index.md)\n'
+        
+        for other_module_name, other_info in module_links.items():
+            if other_module_name != module_name:
+                if other_info['first_page']:
+                    sidebar_content += f'- [{other_module_name}](../{sanitize_name(other_module_name)}/{other_info["first_page"]})\n'
+                else:
+                    sidebar_content += f'- {other_module_name}\n'
+        
+        # Add localized content for the current module
+        sidebar_content += '\n'.join(info['raw_lines'])
+        sidebar_content = re.sub(r'\(' + re.escape(sanitize_name(module_name)) + r'/', '(', sidebar_content)
+
+        save_content_to_file(sidebar_content, os.path.join(module_dir, '_sidebar.md'))
+
 # Main script
 
 canvas = Canvas(api_endpoint, auth_token)
 course = canvas.get_course(course_id)
 logging.info(f"Course Name: {course.name}")
 
-# Context for Mustache template rendering
 context = {
     'course_name': course.name,
     'api_endpoint': api_endpoint,
-    # Add more context variables as needed
 }
 
 content_index = f'- [{course.name}](/)\n'
@@ -163,27 +203,28 @@ for module in modules:
     content_index += f'- {markdownify_name(module.name)}\n'
     
     module_items = module.get_module_items()
-    current_depth = 1  # Initialize depth at the start of each module
+    current_depth = 1
     
-    counter = 1  # Manage the counter outside the loop to handle non-file items like SubHeader
+    counter = 1
     for module_item in module_items:
         file_path, item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
         if item_title:
             if file_path:
                 relative_file_path = get_relative_path(file_path)
                 content_index += f'{"    " * current_depth}- [{item_title}]({relative_file_path})\n'
-                current_depth = 2  # After a file link, set the depth to 2 for subsequent items
-                counter += 1  # Increment counter only if a file was created
+                current_depth = 2
+                counter += 1
             else:
-                content_index += f'    - {item_title}\n'  # Add a non-link list item for SubHeader (flush with level 1)
-                current_depth = 2  # The next items after a subheader should be indented
+                content_index += f'    - {item_title}\n'
+                current_depth = 2
 
-save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
+index_file_path = os.path.join(output_dir, "_index.md")
+save_content_to_file(content_index, index_file_path)
+
+# Generate _sidebar.md files based on _index.md
+generate_sidebars_from_index(index_file_path, output_dir)
 
 # Copy the contents of the template directory to the output directory, processing .tmpl files
-context = {
-    'course_name': course.name
-}
 copy_template_directory(template_dir, output_dir, context)
 
 logging.info("Script completed successfully.")
