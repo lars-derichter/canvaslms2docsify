@@ -140,6 +140,74 @@ def process_template_directory(template_directory, output_directory, context):
     except Exception as e:
         logging.error(f"Error copying template directory: {e}")
 
+def parse_directory_index(content_index, indent_spaces=4):
+    dirs = []
+    lines = content_index.split('\n')
+    current_directory_content = []
+
+    for n, line in enumerate(lines):
+        # Match directories
+        if line.startswith('- '):
+            # Save previous directory details if it exists
+            if current_directory_content:
+                dirs.append({'dir_name': dir_name, 'dir_link': dir_link, 'dir_content': current_directory_content})
+                current_directory_content = []
+
+            # dir_name is everything after the first space
+            dir_name = line.split(' ', 1)[1]
+            print(f"Directory name: {dir_name}")
+            # find the first string part between round brackets and save it to the dir_link variable
+            for i in range(n, len(lines)):
+                match = re.search(r'\]\((.*?)\)', lines[i])
+                if match:
+                    dir_link = match.group(1)
+                    break
+            print(f"Directory link: {dir_link}")
+        # Match subheaders and files
+        elif line.startswith(f'{" " * indent_spaces}'):
+            # push line to current_directory_content
+            current_directory_content.append(line)
+            print(f"Adding line to current_directory_content: {line}")
+
+    # Save the last directory details
+    if current_directory_content:
+        dirs.append({'dir_name': dir_name, 'dir_link': dir_link, 'dir_content': current_directory_content})
+
+    print(f'dirs: \n\n{dirs}')
+    return dirs
+
+def create_root_sidebar(dirs, output_dir="docs"):
+    root_sidebar = ""
+    for dir in dirs:
+        root_sidebar = f"{root_sidebar}- [{dir['dir_name']}]({dir['dir_link']})\n"
+    print(f'root_sidebar: \n\n{root_sidebar}')
+    save_content_to_file(root_sidebar, os.path.join(output_dir, "_sidebar.md"))
+    return root_sidebar
+
+def create_directory_sidebars(dirs, output_dir="docs"):
+    for dir in dirs:
+        sidebar_content = ""
+        dir_name = dir['dir_name']
+        dir_path = sanitize_name(dir_name)
+
+        for directory in dirs:
+            if directory['dir_name'] == dir_name:
+                sidebar_content = f"{sidebar_content}- {directory['dir_name']})\n"
+                for line in directory['dir_content']:
+                    sidebar_content = f"{sidebar_content}{line}\n"
+            else:
+                sidebar_content = f"{sidebar_content}- [{directory['dir_name']}]({directory['dir_link']})\n"
+
+        print(f"sidebar_content for {dir_name}: \n\n{sidebar_content}")
+        save_content_to_file(sidebar_content, os.path.join(output_dir, dir_path, "_sidebar.md"))
+    return True
+
+def create_sidebars(index, output_dir="docs"):
+    dirs = parse_directory_index(index)
+    root_sidebar = create_root_sidebar(dirs, output_dir)
+    directory_sidebars = create_directory_sidebars(dirs, output_dir)
+    return root_sidebar, directory_sidebars
+
 # Main script
 canvas = Canvas(api_endpoint, auth_token)
 course = canvas.get_course(course_id)
@@ -152,7 +220,8 @@ context = {
     # Add more context variables as needed
 }
 
-content_index = f'- [{course.name}](/)\n'
+#content_index = f'- [{course.name}](/)\n'
+content_index = ''
 
 modules = course.get_modules()
 for module in modules:
@@ -179,9 +248,12 @@ for module in modules:
                 content_index += f'    - {item_title}\n'  # Add a non-link list item for SubHeader (flush with level 1)
                 current_depth = 2  # The next items after a subheader should be indented
 
-save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
+save_content_to_file(content_index, os.path.join(output_dir, "_index.md"))
 
 # Copy the contents of the template directory to the output directory, processing .tmpl files
 process_template_directory(template_dir, output_dir, context)
+
+# Generate sidebars based on the content index
+create_sidebars(content_index, output_dir)
 
 logging.info("Script completed successfully.")
