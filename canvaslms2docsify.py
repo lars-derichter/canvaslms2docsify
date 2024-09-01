@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import shutil
+import pystache  # Importing pystache for Mustache templating
 from canvasapi import Canvas
 from canvasapi.exceptions import ResourceDoesNotExist
 from panflute import *
@@ -14,6 +15,7 @@ api_endpoint = os.getenv("API_ENDPOINT", "https://canvas.instructure.com")
 auth_token = os.getenv("AUTH_TOKEN", "YOUR_AUTH")
 course_id = os.getenv("COURSE_ID", "YOUR_COURSE_ID")
 output_dir = os.getenv("OUTPUT_DIR", "docs")
+template_dir = os.getenv("TEMPLATE_DIR", "template")  # Set a template directory path
 
 # Helper functions
 def sanitize_name(name):
@@ -96,25 +98,58 @@ def process_module_item(module_item, directory_path, counter, current_depth):
 def get_relative_path(file_path):
     return os.path.relpath(file_path, output_dir)
 
-# Function to handle copying of Docsify files
-def copy_docsify_files(output_directory):
+# Function to copy and process template files using Mustache
+def copy_template_directory(template_directory, output_directory, context):
     try:
-        shutil.copyfile("templates/index.html", os.path.join(output_directory, "index.html"))
-        logging.info("index.html copied successfully.")
-    except FileNotFoundError:
-        logging.error("templates/index.html not found. Skipping index.html copy.")
-
-# Function to create the .nojekyll file
-def create_nojekyll_file(output_directory):
-    nojekyll_path = os.path.join(output_directory, ".nojekyll")
-    with open(nojekyll_path, "w") as file:
-        pass
-    logging.info(f".nojekyll file created at {nojekyll_path}")
+        if os.path.exists(template_directory):
+            for root, dirs, files in os.walk(template_directory):
+                # Calculate the relative path and corresponding output directory
+                relative_path = os.path.relpath(root, template_directory)
+                dest_dir = os.path.join(output_directory, relative_path)
+                
+                # Ensure the destination directory exists
+                os.makedirs(dest_dir, exist_ok=True)
+                
+                for file_name in files:
+                    template_file_path = os.path.join(root, file_name)
+                    
+                    # Check if the file is a .tmpl file
+                    if file_name.endswith('.tmpl'):
+                        logging.info(f"Processing template file: {template_file_path}")
+                        # Read the template content
+                        with open(template_file_path, 'r') as template_file:
+                            template_content = template_file.read()
+                        
+                        # Render the template with context using Mustache
+                        rendered_content = pystache.render(template_content, context)
+                        
+                        # Save the rendered content without the .tmpl extension
+                        output_file_path = os.path.join(dest_dir, file_name[:-5])  # Remove .tmpl
+                        with open(output_file_path, 'w') as output_file:
+                            output_file.write(rendered_content)
+                        logging.info(f"Rendered template saved to: {output_file_path}")
+                    
+                    else:
+                        # Copy non-template files as-is
+                        shutil.copy2(template_file_path, dest_dir)
+                        logging.info(f"Copied file: {template_file_path} to {dest_dir}")
+        else:
+            logging.error(f"Template directory {template_directory} does not exist. Skipping copy.")
+    except Exception as e:
+        logging.error(f"Error copying template directory: {e}")
 
 # Main script
+
 canvas = Canvas(api_endpoint, auth_token)
 course = canvas.get_course(course_id)
 logging.info(f"Course Name: {course.name}")
+
+# Context for Mustache template rendering
+context = {
+    'course_name': course.name,
+    'api_endpoint': api_endpoint,
+    # Add more context variables as needed
+}
 
 content_index = f'- [{course.name}](/)\n'
 
@@ -145,8 +180,10 @@ for module in modules:
 
 save_content_to_file(content_index, os.path.join(output_dir, "_sidebar.md"))
 
-# Handle copying Docsify HTML and creating .nojekyll
-copy_docsify_files(output_dir)
-create_nojekyll_file(output_dir)
+# Copy the contents of the template directory to the output directory, processing .tmpl files
+context = {
+    'course_name': course.name
+}
+copy_template_directory(template_dir, output_dir, context)
 
 logging.info("Script completed successfully.")

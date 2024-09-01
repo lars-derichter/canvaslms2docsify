@@ -39,6 +39,8 @@ pyproject-hooks==1.1.0
     # via
     #   build
     #   pip-tools
+pystache==0.6.5
+    # via -r requirements.txt
 python-dateutil==2.9.0.post0
     # via
     #   -r requirements.txt
