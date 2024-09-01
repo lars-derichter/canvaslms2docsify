@@ -92,8 +92,8 @@ def process_module_item(module_item, directory_path, counter, current_depth):
         logging.warning(f"Module item type not supported: {module_item_type}")
         return None, None, current_depth
 
-def get_relative_path(file_path, base_directory):
-    return os.path.relpath(file_path, base_directory)
+def get_relative_path(file_path):
+    return os.path.relpath(file_path, output_dir)
 
 def copy_template_directory(template_directory, output_directory, context):
     try:
@@ -191,8 +191,7 @@ context = {
     'api_endpoint': api_endpoint,
 }
 
-modules_info = {}
-course_index_path = os.path.join(output_dir, "_index.md")
+content_index = f'- [{course.name}](/)\n'
 
 modules = course.get_modules()
 for module in modules:
@@ -201,14 +200,15 @@ for module in modules:
     os.makedirs(directory_path, exist_ok=True)
     
     logging.info(f"Processing module: {module.name}")
+    content_index += f'- {markdownify_name(module.name)}\n'
     
     module_items = module.get_module_items()
     current_depth = 1
     
     counter = 1
     for module_item in module_items:
-        file_path, module_item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
-        if module_item_title:
+        file_path, item_title, current_depth = process_module_item(module_item, directory_path, counter, current_depth)
+        if item_title:
             if file_path:
                 relative_file_path = get_relative_path(file_path)
                 content_index += f'{"    " * current_depth}- [{item_title}]({relative_file_path})\n'
