@@ -58,6 +58,11 @@ def content_to_markdown(content, title):
     return f"# {title}\n\n{convert_text(content, input_format='html', output_format='gfm')}"
 
 def save_content_to_file(content, file_path):
+    # Ensure the parent directory exists
+    parent_directory = os.path.dirname(file_path)
+    if parent_directory:
+        os.makedirs(parent_directory, exist_ok=True)
+    # Write the content to the file
     with open(file_path, "w") as file:
         file.write(content)
     logging.info(f"Saved content to: {file_path}")
