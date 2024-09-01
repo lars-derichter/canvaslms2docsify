@@ -35,32 +35,32 @@ def parse_directory_index(content_index, indent_spaces=4):
 
             # dir_name is everything after the first space
             dir_name = line.split(' ', 1)[1]
-            print(f"Directory name: {dir_name}")
+            logging.info(f"Directory name: {dir_name}")
             # find the first string part between round brackets and save it to the dir_link variable
             for i in range(n, len(lines)):
                 match = re.search(r'\]\((.*?)\)', lines[i])
                 if match:
                     dir_link = match.group(1)
                     break
-            print(f"Directory link: {dir_link}")
+            logging.info(f"Directory link: {dir_link}")
         # Match subheaders and files
         elif line.startswith(f'{" " * indent_spaces}'):
             # push line to current_directory_content
             current_directory_content.append(line)
-            print(f"Adding line to current_directory_content: {line}")
+            logging.info(f"Adding line to current_directory_content: {line}")
 
     # Save the last directory details
     if current_directory_content:
         dirs.append({'dir_name': dir_name, 'dir_link': dir_link, 'dir_content': current_directory_content})
 
-    print(f'dirs: \n\n{dirs}')
+    logging.info(f'dirs: \n\n{dirs}')
     return dirs
 
 def create_root_sidebar(dirs, output_dir="docs"):
     root_sidebar = ""
     for dir in dirs:
         root_sidebar = f"{root_sidebar}- [{dir['dir_name']}]({dir['dir_link']})\n"
-    print(f'root_sidebar: \n\n{root_sidebar}')
+    logging.info(f'root_sidebar: \n\n{root_sidebar}')
     save_content_to_file(root_sidebar, os.path.join(output_dir, "_sidebar.md"))
     return root_sidebar
 
@@ -78,7 +78,7 @@ def create_directory_sidebars(dirs, output_dir="docs"):
             else:
                 sidebar_content = f"{sidebar_content}- [{directory['dir_name']}]({directory['dir_link']})\n"
 
-        print(f"sidebar_content for {dir_name}: \n\n{sidebar_content}")
+        logging.info(f"sidebar_content for {dir_name}: \n\n{sidebar_content}")
         save_content_to_file(sidebar_content, os.path.join(output_dir, dir_path, "_sidebar.md"))
     return True
 
