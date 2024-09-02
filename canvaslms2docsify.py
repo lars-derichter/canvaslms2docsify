@@ -247,7 +247,6 @@ for module in modules:
             if file_path:
                 relative_file_path = get_relative_path(file_path)
                 content_index += f'{"    " * current_depth}- [{item_title}]({relative_file_path})\n'
-                current_depth = 2  # After a file link, set the depth to 2 for subsequent items
                 counter += 1  # Increment counter only if a file was created
             else:
                 content_index += f'    - {item_title}\n'  # Add a non-link list item for SubHeader (flush with level 1)
