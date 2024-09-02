@@ -7,3 +7,4 @@ Python script to export a Canvas LMS Course through the API into a directory str
 - [ ] Documentation
 - [ ] Cleanup and refactoring
 - [ ] Command line interface
+- [ ] Unit tests
